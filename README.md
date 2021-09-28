@@ -1,6 +1,6 @@
 Hello,
 
-#Nicks Cruddy __init Hunter!
+# Nicks Cruddy __init Hunter!
 
 The purpose of this project is to create a series of scripts that can identify functions in the linux source tree that should be labeled with the macro `__init` (defined in `<source>/include/linux/init.h`). 
 `__init` functions are placed in the ".init.text" section of the executable. This data is free'd after booting the kernel. 
