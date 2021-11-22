@@ -48,11 +48,25 @@ def is_valid_pair(caller, match):
     # <file>:use of match
     loc_colon = caller.find(":")
     loc_equal = caller.find("=")
+
+    # if caller has no equal sign then it is not a calling function statemet
     if loc_equal == -1:
         return False
-    if loc_equal < loc_colon or loc_colon == -1:
-        return True
-    return False
+    # if the colon exists and it happens before the equal sign, not a calling statement
+    if loc_equal > loc_colon and loc_colon != -1:
+        return False
+
+    # opposite should be true for the match
+    loc_colon = match.find(":")
+    loc_equal = match.find("=")
+
+    if loc_colon == -1:
+        return False
+    if loc_colon > loc_equal and loc_equal != -1:
+        return False
+    
+    return True 
+
 
 # borrowed from https://stackoverflow.com/questions/2170900/get-first-list-index-containing-sub-string, thanks kennytm
 def index_containing_substring(the_list, substring):
@@ -88,6 +102,7 @@ def get_calling_funcs(func):
         # and:
         # ex: when looking for use of kvmppc_mmu_flush_segment, dont add kvmppc_mmu_flush_segments calls
         elif  func["name"] +'(' not in use:
+            print(f'disregarding {func["name"]} since use: {use} is too confusing')
             # temporary just give up, INOW don't try to investigate `func` any further TODO
             return []
             # if func['name'] + ',' in use or func['name'] + ';' in use:
@@ -144,7 +159,16 @@ def get_calling_funcs(func):
         #print("caller = " + str(caller))
         #print("use = " + str(use))
         calling_funcs.append(caller[caller.find("=")+1:])
-        i += 2
+        # if next entry is another call in the same function
+        # only iterate once
+        if i+2 < len(out_list) and is_valid_pair(caller, out_list[i+2]):
+            print(f'double call in {caller} and {out_list[i+2]}')
+            #use the same caller next time
+            out_list[i+1] = caller
+            i += 1
+        # else skip to next function that calls
+        else:
+            i += 2
     print(f"functions that call {func['name']} are {str(calling_funcs)}")
     return calling_funcs
 
