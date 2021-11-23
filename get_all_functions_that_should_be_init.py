@@ -13,6 +13,12 @@ function_file = "foo.txt"
 out_file = "out.txt"
 reasoning_file = "reasoning.txt"
 
+def is_func_init(declaration, name):
+    # unfortunately functions like "static int hash__init_new_context(struct mm_struct *mm)" exist
+    # this function is not an __init but contains the pattern
+    if declaration.count("__init") > name.count("__init"):
+        return True
+    return False
 
 def add_to_reasoning_file(function, callers, file):
     with open(file, "a") as f:
@@ -21,7 +27,7 @@ def should_be_init(callers, should_be_inits):
     if len(callers) == 0:
         return False
     for i, func in callers.iterrows():
-        if "__init" not in func['declaration'] and func['name'] not in should_be_inits['name']:
+        if not is_func_init(func['declaration'], func['name']) and func['name'] not in should_be_inits['name']:
             print("returning false")
             return False
     print("returning true")
@@ -206,7 +212,7 @@ for index, func in df.iterrows():
     actual_calling_funcs = filter_results(calling_funcs, df)
 
     # if functions that call are __init than mark as should be init
-    if '__init' not in func['declaration'] and 'inline' not in func['declaration'] and '__ref' not in func['declaration']  and should_be_init(actual_calling_funcs, funcs_that_should_be_init):
+    if not is_func_init(func['declaration'], func['name']) and 'inline' not in func['declaration'] and '__ref' not in func['declaration']  and should_be_init(actual_calling_funcs, funcs_that_should_be_init):
         funcs_that_should_be_init = funcs_that_should_be_init.append(func)
         add_to_reasoning_file(func, actual_calling_funcs, reasoning_file)
         print(f"{func['name']} from {func['file']} should be init since it was only found to be called by {str(actual_calling_funcs['name'])}")
