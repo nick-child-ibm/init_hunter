@@ -16,10 +16,18 @@ def get_replacement_declaration(name, func_dec):
     i = func_dec.index(name)
     return (func_dec[:i] + "__init " + func_dec[i:], func_dec + " __init") 
 
+def remove_special_characters(string):
+    # sed treats * as special character, trying to escape with \* wasnt working
+    # so we replace with another special character!
+    string = string.replace("*", ".")
+    return string
 
 def run_replace_command(old, new, new_protoype):
     # don't change it in header files, bc thats what seems to be the current pattern
     # find . -type f -name "*.c" -exec sed -i 's/foo/bar/g' {} +
+    old = remove_special_characters(old)
+    # new = remove_special_characters(new)
+    # new_protoype = remove_special_characters(new_protoype)
     assert '/' not in old and "/" not in new, f"/ somehow not allowed in {new} or {old}"
     command = f"find {src_linux} -type f -name '*.c' -exec sed -i 's/{old}/{new}/g' {{}} +"
     print("running command " + command)
@@ -29,7 +37,7 @@ def run_replace_command(old, new, new_protoype):
     os.system(command)
 
 def declaration_is_in_source(pattern):
-    command = f"grep -Fr {src_linux} --include \*c --include \*h -e '{pattern}'"
+    command = f"grep -Fr {src_linux} --include \*.c --include \*.h -e '{pattern}'"
     print("running command " + command)
     result = os.system(command)
     #return true if declaration is in a C source file
