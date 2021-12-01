@@ -3,6 +3,7 @@ import sys
 import subprocess
 import pandas as pd
 import os
+import linecache
 
 # run get_functs.sh first
 # this is a script that will, given a list of all of its functions,
@@ -19,6 +20,27 @@ def is_func_init(declaration, name):
     if declaration.count("__init") > name.count("__init"):
         return True
     return False
+
+def is_bad_prototype(name, declaration):
+        # special case, ctags does not capture multiline function prototypes
+        # things like"
+        #int
+        #func() {}
+        #get recorded as func()
+        
+        # if the "declaration" starts with the name then we are missing
+        # return type and possiblly more information
+        if (declaration.startswith(name)):
+            return True
+        return False
+def fixup_bad_prototype(name, line_number, file, declaration):
+    # attempt to read the line before the declaration and prepend relevant information to the declaration
+    before_line = linecache.getline(file, int(line_number)-1)
+    if before_line.isspace() or len(before_line) < 1:
+        return declaration
+    if before_line.endswith(';') or before_line.endswith('}') or before_line.startswith('#') or before_line.startswith('/'):
+        return declaration
+    return before_line + declaration
 
 def add_to_reasoning_file(function, callers, file):
     with open(file, "a") as f:
@@ -38,7 +60,7 @@ def filter_results(calling_funcs, database):
     for declaration in calling_funcs:
         #matches = database.loc[database['declaration'].str.contains(declaration)]
         # if not database['declaration'].str.contains(declaration):
-        results = database[database['declaration'].isin([declaration])]
+        results = database[database['declaration'].str.contains(declaration, regex=False)]
         if len(results) != 0:
         #    print(f'Could not find {declaration} in database')
         #    print("should be adding " + results)
@@ -89,7 +111,7 @@ def get_calling_funcs(func):
     #git grep -Fp -e "printCertInfo" --and --not -e "int printCertInfo(crypto_x509 *x509)"
     #output = subprocess.check_output(['git', '-C', src_linux, 'grep', '-Fp', '-e', func['name'], '--and', '--not', '-e', func['declaration'], '--', '*.c' ],  encoding='UTF-8')
     # some functions (like setup_kup) are actually only called inside header files... so search in headers too
-    command = f'git -C {src_linux} grep -Fp -e "{func["name"]}" --and --not -e "{func["declaration"]}" -- "*.c" "*.h"'
+    command = f'git -C {src_linux} grep -Fp -e "{func["name"]}" --and --not -e "{func["declaration"][func["declaration"].index(func["name"]):]}" -- "*.c" "*.h"'
     print("running command " + command)
     cmd = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE)
     output = (cmd.stdout.read()).decode('utf-8')
@@ -193,7 +215,12 @@ with open(func_file) as f:
         new_entry.append(splitz[0])
         new_entry += (splitz[2:4])
         new_entry.append(' '.join(splitz[4:]))
-        #print(f"adding {new_entry}")
+        # check that we have a full function declaration and all its info
+        # if not, we will try to reoover the relevant missing data
+        if is_bad_prototype(new_entry[0], new_entry[3]):
+            #reassign declaration to better version
+            new_entry[3] = fixup_bad_prototype(new_entry[0], new_entry[1], new_entry[2], new_entry[3])
+        
         matrix.append(new_entry)
 
 df = pd.DataFrame(matrix, columns=['name', 'line', 'file', 'declaration'])
