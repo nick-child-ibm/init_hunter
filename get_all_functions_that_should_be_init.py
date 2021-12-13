@@ -124,6 +124,13 @@ def get_calling_funcs(func):
         if (not is_valid_pair(caller, use)):
             i += 1
             continue
+
+        # account for function assigned to macro, ex: _dump_db 
+        # but things like set_pci_dma_ops are okay
+        elif use[use.find(":")+1:].startswith("#") and not use[use.find(":")+1:].startswith("#define " + func["name"]):
+            print(f'disregarding {func["name"]} since use: {use} is too confusing')
+            # temporary just give up, INOW don't try to investigate `func` any further TODO
+            return []
         # account for function pointers assignments and function name being used in a bigger function name 
         # ex: mmu_hash_ops.hpte_insert  = pSeries_lpar_hpte_insert;
         # ex: .open  = debugfs_timings_open,
